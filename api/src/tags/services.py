@@ -3,7 +3,7 @@ from fastapi.exceptions import HTTPException
 from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.src.items.services import ItemsService
+from src.items.services import ItemsService
 from src.db.models import Tag
 from .schemas import TagAddModel, TagCreateModel
 from src.errors import (

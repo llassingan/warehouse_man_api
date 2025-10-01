@@ -4,7 +4,7 @@ from sqlmodel import desc, select
 from src.db.models import Notes
 from src.notes.schemas import CreateNote
 from src.userauth.services import UserService
-from app.src.items.services import ItemsService
+from src.items.services import ItemsService
 from sqlmodel.ext.asyncio.session import AsyncSession
 from src.errors import (
     ItemNotFound,

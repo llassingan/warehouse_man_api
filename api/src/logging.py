@@ -9,7 +9,7 @@ log_filename = datetime.now().strftime("%Y-%m-%d") + "_logs_warehouse.log"
 log_path = os.path.join("logs", log_filename)
 
 logger = logging.getLogger("uvicorn.access")
-logger.disabled = True
+# logger.disabled = True
 
 logger.handlers.clear()
 

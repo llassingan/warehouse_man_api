@@ -1,6 +1,7 @@
 from celery import Celery
-from src.mail import create_message, mail
 from asgiref.sync import async_to_sync
+
+from src.mail import create_message, mail
 
 c_app = Celery()
 
