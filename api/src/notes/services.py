@@ -10,6 +10,7 @@ from src.errors import (
     ItemNotFound,
     UserNotFound
 )
+from src.logging import logger
 
 
 item_service = ItemsService()
@@ -20,11 +21,14 @@ class NotesService:
     async def add_note(self, user_email:str, item_uid:str, note_data:CreateNote, session:AsyncSession):
         
         try:
+            logger.info("Adding item note: inserting note to database..")
             item = await item_service.get_item(item_uid, session)
             if not item:
+                logger.error("Adding item note: item not found")
                 raise ItemNotFound()
             user = await user_service.get_user_by_email(user_email, session)
             if not user:
+                logger.error("Adding item note: user not found")
                 raise UserNotFound()
             new_note = Notes(
                 **note_data.model_dump()
@@ -36,6 +40,7 @@ class NotesService:
             await session.refresh(new_note)
             return new_note
         except Exception as e:
+            logger.error(f"DB Error: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="something went wrong"
@@ -44,28 +49,45 @@ class NotesService:
 
     async def get_note(self, note_uid: str, session: AsyncSession):
 
-        statement = select(Notes).where(Notes.uid == note_uid)
-        result = await session.exec(statement)
-        return result.first()
+        try:
+            logger.info("Getting note: getting data from databases..")
+            statement = select(Notes).where(Notes.uid == note_uid)
+            result = await session.exec(statement)
+            return result.first()
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
     
 
     async def get_all_notes(self, session: AsyncSession):
-        statement = select(Notes).order_by(desc(Notes.created_at))
-        result = await session.exec(statement)
-        return result.all()
+
+        try:
+            logger.info("Getting all notes: getting data from databases..")
+            statement = select(Notes).order_by(desc(Notes.created_at))
+            result = await session.exec(statement)
+            return result.all()
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
     
 
     async def delete_note_from_item(self, note_uid: str, user_email: str, session: AsyncSession):
 
-        user = await user_service.get_user_by_email(user_email, session)
-        note = await self.get_note(note_uid, session)
-        
-        if not note or (note.user is not user):
-            raise HTTPException(
-                detail="Cannot delete this note",
-                status_code=status.HTTP_403_FORBIDDEN,
-            )
-        
-        await session.delete(note)
-        await session.commit()
-        return note
+        try:
+            logger.info("Deleting note: getting data from databases..")
+            user = await user_service.get_user_by_email(user_email, session)
+            note = await self.get_note(note_uid, session)
+            
+            if not note or (note.user is not user):
+                logger.error("Deleting note: note not found")
+                raise HTTPException(
+                    detail="Cannot delete this note",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+            
+            await session.delete(note)
+            await session.commit()
+            return note
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise

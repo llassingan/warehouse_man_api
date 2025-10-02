@@ -11,6 +11,7 @@ from src.errors import (
     TagAlreadyExists,
     ItemNotFound
 )
+from src.logging import logger
 
 
 item_service = ItemsService()
@@ -20,86 +21,118 @@ item_service = ItemsService()
 class TagService:
 
     async def get_tags(self, session: AsyncSession):
-        """Get all tags"""
 
-        statement = select(Tag).order_by(desc(Tag.created_at))
-        result = await session.exec(statement)
-        return result.all()
+        try:
+            logger.info("Getting all tags: getting data from databases..")
+            statement = select(Tag).order_by(desc(Tag.created_at))
+            result = await session.exec(statement)
+            return result.all()
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
     
 
     async def add_tags_to_item(self, item_uid: str, tag_data: TagAddModel, session: AsyncSession):
-        """Add tags to a item"""
 
-        item = await item_service.get_item(item_uid, session=session)
-        if not item:
-            raise ItemNotFound()
+        try:
+            logger.info(f"Adding tags to item: inserting to database..")    
+            item = await item_service.get_item(item_uid, session=session)
+            if not item:
+                logger.error("Adding tags to item: item not found")
+                raise ItemNotFound()
 
-        for tag_item in tag_data.tags:
-            result = await session.exec(
-                select(Tag).where(Tag.name == tag_item.name)
-            )
+            for tag_item in tag_data.tags:
+                result = await session.exec(
+                    select(Tag).where(Tag.name == tag_item.name)
+                )
 
-            tag = result.one_or_none()
-            if not tag:
-                tag = Tag(name=tag_item.name)
+                tag = result.one_or_none()
+                if not tag:
+                    tag = Tag(name=tag_item.name)
 
-            item.tags.append(tag)
-        session.add(item)
-        await session.commit()
-        await session.refresh(item)
-        return item
+                item.tags.append(tag)
+            session.add(item)
+            await session.commit()
+            await session.refresh(item)
+            return item
+        
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
 
 
     async def get_tag_by_uid(self, tag_uid: str, session: AsyncSession):
-        """Get tag by uid"""
 
-        statement = select(Tag).where(Tag.uid == tag_uid)
+        try:
+            logger.info(f"Getting tag by uid: getting data from database..")
+            statement = select(Tag).where(Tag.uid == tag_uid)
 
-        result = await session.exec(statement)
+            result = await session.exec(statement)
 
-        return result.first()
+            return result.first()
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
+
+
 
     async def add_tag(self, tag_data: TagCreateModel, session: AsyncSession):
-        """Create a tag"""
-
-        statement = select(Tag).where(Tag.name == tag_data.name)
-        result = await session.exec(statement)
-        tag = result.first()
-
-        if tag:
-            raise TagAlreadyExists()
         
-        new_tag = Tag(name=tag_data.name)
+        try:
+            logger.info("Adding tag: inserting to database..")
+            statement = select(Tag).where(Tag.name == tag_data.name)
+            result = await session.exec(statement)
+            tag = result.first()
 
-        session.add(new_tag)
-        await session.commit()
+            if tag:
+                logger.error("Adding tag: tag already exists")
+                raise TagAlreadyExists()
+            
+            new_tag = Tag(name=tag_data.name)
 
-        return new_tag
+            session.add(new_tag)
+            await session.commit()
+
+            return new_tag
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
+
+
 
 
     async def update_tag(self, tag_uid, tag_update_data: TagCreateModel, session: AsyncSession):
-        """Update a tag"""
+        
+        try:
+            logger.info(f"Updating tag: updating data in database..")
+            tag = await self.get_tag_by_uid(tag_uid, session)
 
-        tag = await self.get_tag_by_uid(tag_uid, session)
+            update_data_dict = tag_update_data.model_dump()
+            for k, v in update_data_dict.items():
+                setattr(tag, k, v)
 
-        update_data_dict = tag_update_data.model_dump()
-        for k, v in update_data_dict.items():
-            setattr(tag, k, v)
+                await session.commit()
+                await session.refresh(tag)
 
-            await session.commit()
-            await session.refresh(tag)
-
-        return tag
+            return tag
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise
 
 
     async def delete_tag(self, tag_uid: str, session: AsyncSession):
-        """Delete a tag"""
+        
+        try:
+            logger.info(f"Deleting tag: deleting data from database..")
+            tag = await self.get_tag_by_uid(tag_uid,session)
+            if not tag:
+                logger.error("Deleting tag: tag not found")
+                raise TagNotFound()
 
-        tag = await self.get_tag_by_uid(tag_uid,session)
-        if not tag:
-            raise TagNotFound()
+            await session.delete(tag)
+            await session.commit()
 
-        await session.delete(tag)
-        await session.commit()
-
-        return tag
+            return tag
+        except Exception as e:
+            logger.error(f"DB Error: {e}")
+            raise

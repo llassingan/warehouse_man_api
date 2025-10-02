@@ -18,6 +18,7 @@ from src.errors import(
     InvalidCredentials,
     AccountNotVerified
 )
+from src.logging import logger
 
 
 user_service = UserService()
@@ -34,10 +35,13 @@ class TokenBearer(HTTPBearer):
         token = creds.credentials
         token_data = decode_token(token)
         if not token_data: 
+            logger.error("Invalid Token")
             raise InvalidToken
         if not self.token_valid(token):
+            logger.error("Invalid Token")
             raise InvalidToken()
         if await token_in_blocklist(token_data['jti']):
+            logger.error("Revoked Token")
             raise RevokedToken()
         self.verify_token_data(token_data)
         return token_data 
@@ -48,11 +52,13 @@ class TokenBearer(HTTPBearer):
 class AccessTokenBearer(TokenBearer):
     def verify_token_data(self, token_data: dict) -> None:
         if token_data['refresh']:
+            logger.error("Access Token Required")
             raise AccessTokenRequired()
 
 class RefreshTokenBearer(TokenBearer):
     def verify_token_data(self, token_data:dict) -> None:
         if not token_data['refresh']:
+            logger.error("Refresh Token Required")
             raise RefreshTokenRequired()
 
 async def get_current_user(token_details: dict = Depends(AccessTokenBearer()), 
@@ -60,6 +66,7 @@ async def get_current_user(token_details: dict = Depends(AccessTokenBearer()),
     user_email= token_details['user']['email']
     user = await user_service.get_user_by_email(user_email, session)
     if not user:
+        logger.error("Invalid Credentials")
         raise InvalidCredentials()
     return user
 
@@ -70,9 +77,11 @@ class RoleChecker:
 
     def __call__(self, current_user: User = Depends(get_current_user)):
         if not current_user.is_verified:
+            logger.error("Account Not Verified")
             raise AccountNotVerified()
         
         if current_user.role not in self.allowed_roles:
+            logger.error("Insufficient Permission")
             raise InsufficientPermission()
         return True
 
