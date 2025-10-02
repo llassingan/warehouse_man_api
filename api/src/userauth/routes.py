@@ -212,7 +212,7 @@ async def get_current_user(user: UserModel = Depends(get_current_user), _:bool =
 @auth_router.get("/logout")
 async def revoke_token(token_details: dict = Depends(access_token_bearer)):
 
-    logger.info(f"Logging out user {token_details["user"]["email"]}: processing request..")
+    logger.info(f"Logging out user {token_details['user']['email']}: processing request..")
     jti = token_details["jti"]
     await add_jti_to_blocklist(jti)
     
